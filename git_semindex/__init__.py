@@ -13,7 +13,14 @@ try:
         Uses the high-performance native Rust core.
         """
         try:
-            return _rust_list_local_branches()
+            return [
+                {
+                    "branch_name": b.branch_name,
+                    "latest_commits": b.latest_commits,
+                    "files_changed": b.files_changed
+                }
+                for b in _rust_list_local_branches()
+            ]
         except Exception as e:
             logger.warning(f"Rust extension failed to execute: {e}. Falling back to shell.")
             return _shell_list_local_branches()
@@ -42,14 +49,39 @@ def _shell_list_local_branches():
         )
         branch_names = [b.strip() for b in result.stdout.split('\n') if b.strip()]
 
+        # Find default branch
+        default_branch = None
+        if 'main' in branch_names:
+            default_branch = 'main'
+        elif 'master' in branch_names:
+            default_branch = 'master'
+
         metadata_list = []
         for branch in branch_names:
-            # Note: This is a scaffold. In a full implementation, we would extract
-            # real 'latest_commits' and 'files_changed' via further git shell commands.
+            # Get latest 3 commits
+            commits_result = subprocess.run(
+                ['git', 'log', '-n', '3', '--format=%h %s', branch],
+                capture_output=True, text=True, check=True
+            )
+            latest_commits = [c.strip() for c in commits_result.stdout.split('\n') if c.strip()]
+
+            # Get files changed
+            files_changed = []
+            if default_branch and branch != default_branch:
+                try:
+                    diff_result = subprocess.run(
+                        ['git', 'diff', '--name-only', f'{default_branch}...{branch}'],
+                        capture_output=True, text=True, check=True
+                    )
+                    files_changed = [f.strip() for f in diff_result.stdout.split('\n') if f.strip()]
+                except subprocess.CalledProcessError:
+                    # Ignore errors, e.g. when there's no common ancestry or branch doesn't exist anymore
+                    pass
+
             metadata = {
                 'branch_name': branch,
-                'latest_commits': ["Placeholder shell commit 1"],
-                'files_changed': ["Placeholder shell file 1"]
+                'latest_commits': latest_commits,
+                'files_changed': files_changed
             }
             metadata_list.append(metadata)
 
@@ -60,3 +92,6 @@ def _shell_list_local_branches():
     except FileNotFoundError:
         logger.error("Git executable not found in PATH.")
         return []
+
+from .indexer import SemanticIndexer
+__all__ = ["list_local_branches", "SemanticIndexer"]
