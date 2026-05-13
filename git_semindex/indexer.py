@@ -39,7 +39,7 @@ class SemanticIndexer:
             current_chunk.append(branch_copy)
 
             if len(current_chunk) >= 25:
-                chunks.append(json.dumps(current_chunk, indent=2))
+                chunks.append(json.dumps(current_chunk))
                 current_chunk = []
 
         if current_chunk:
