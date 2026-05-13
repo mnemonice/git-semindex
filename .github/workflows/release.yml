@@ -42,7 +42,7 @@ jobs:
           args: --release --out dist
           sccache: 'true'
           manylinux: auto
-          use-cross: ${{ matrix.use-cross || false }}
+          use-cross: ${{ matrix.use-cross == true }}
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4

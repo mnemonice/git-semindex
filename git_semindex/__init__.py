@@ -40,7 +40,7 @@ def _shell_list_local_branches():
             ['git', 'branch', '--format=%(refname:short)'],
             capture_output=True, text=True, check=True
         )
-        branch_names = [b.strip() for b in result.stdout.splitlines() if b.strip()]
+        branch_names = [b.strip() for b in result.stdout.split('\n') if b.strip()]
 
         metadata_list = []
         for branch in branch_names:
