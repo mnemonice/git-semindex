@@ -1,0 +1,32 @@
+[build-system]
+requires = ["maturin>=1.4,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "git_semindex"
+version = "0.1.0"
+description = "High-performance Rust/Python library for semantic Git archaeology"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [
+    { name = "5Dj3" }
+]
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+
+dependencies = []
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+]
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+module-name = "git_semindex._git_semindex"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,14 @@
+[package]
+name = "git_semindex"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "git_semindex"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.20", features = ["extension-module"] }
+git2 = { version = "0.18", default-features = false }
+
+[dev-dependencies]
