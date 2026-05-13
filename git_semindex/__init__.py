@@ -59,11 +59,14 @@ def _shell_list_local_branches():
         metadata_list = []
         for branch in branch_names:
             # Get latest 3 commits
-            commits_result = subprocess.run(
-                ['git', 'log', '-n', '3', '--format=%h %s', branch],
-                capture_output=True, text=True, check=True
-            )
-            latest_commits = [c.strip() for c in commits_result.stdout.split('\n') if c.strip()]
+            try:
+                commits_result = subprocess.run(
+                    ['git', 'log', '-n', '3', '--format=%h %s', branch],
+                    capture_output=True, text=True, check=True
+                )
+                latest_commits = [c.strip() for c in commits_result.stdout.split('\n') if c.strip()]
+            except subprocess.CalledProcessError:
+                latest_commits = []
 
             # Get files changed
             files_changed = []
