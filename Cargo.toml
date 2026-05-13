@@ -9,6 +9,6 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.20", features = ["extension-module"] }
-git2 = { version = "0.18", default-features = false }
+git2 = { version = "0.18", default-features = false, features = [] }
 
 [dev-dependencies]
