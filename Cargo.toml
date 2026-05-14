@@ -10,5 +10,15 @@ crate-type = ["cdylib"]
 [dependencies]
 pyo3 = { version = "0.20", features = ["extension-module"] }
 git2 = { version = "0.20", default-features = false }
+cap-std = "3.4.1"
 
 [dev-dependencies]
+criterion = "0.5.1"
+
+[profile.release]
+lto = true
+codegen-units = 1
+
+[[bench]]
+name = "extraction_benchmark"
+harness = false
