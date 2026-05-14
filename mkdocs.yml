@@ -1,0 +1,20 @@
+site_name: git-semindex
+site_description: High-performance Rust/Python library for semantic Git archaeology
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+
+plugins:
+  - search
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths: [.]
+
+nav:
+  - Home: index.md
+  - Contributing: contributing.md
+  - Security: security.md

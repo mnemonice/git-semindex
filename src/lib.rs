@@ -1,6 +1,7 @@
+use cap_std::fs::Dir;
+use git2::{BranchType, Repository};
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
-use git2::{Repository, BranchType};
 
 /// Represents metadata extracted from a git branch.
 /// Adheres to the "Semantic Extraction over Textual Merging" paradigm.
@@ -18,7 +19,7 @@ pub struct BranchMetadata {
 #[pymethods]
 impl BranchMetadata {
     /// Converts the struct to a Python dictionary.
-    pub fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<&'py PyDict> {
+    pub fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<pyo3::Bound<'py, PyDict>> {
         let dict = PyDict::new(py);
         dict.set_item("branch_name", &self.branch_name)?;
         dict.set_item("latest_commits", &self.latest_commits)?;
@@ -32,117 +33,116 @@ fn extract_metadata(repo: &Repository) -> Result<Vec<BranchMetadata>, git2::Erro
     let mut branches_metadata = Vec::new();
 
     // Find default branch
-    let default_branch = repo.find_branch("main", BranchType::Local)
+    let default_branch = repo
+        .find_branch("main", BranchType::Local)
         .or_else(|_| repo.find_branch("master", BranchType::Local))
         .ok();
 
-    let default_commit = default_branch.as_ref().and_then(|b| b.get().peel_to_commit().ok());
-    let default_branch_name = default_branch.as_ref().and_then(|b| b.name().ok().flatten());
+    let default_commit = default_branch
+        .as_ref()
+        .and_then(|b| b.get().peel_to_commit().ok());
+    let default_branch_name = default_branch
+        .as_ref()
+        .and_then(|b| b.name().ok().flatten());
 
     let branches = repo.branches(Some(BranchType::Local))?;
 
-    for branch_result in branches {
-        if let Ok((branch, _)) = branch_result {
-            if let Ok(Some(name)) = branch.name() {
-                let mut latest_commits = Vec::new();
-                let mut files_changed = Vec::new();
+    for (branch, _) in branches.flatten() {
+        if let Ok(Some(name)) = branch.name() {
+            let mut latest_commits = Vec::new();
+            let mut files_changed = Vec::new();
 
-                let is_default = default_branch_name == Some(name);
+            let is_default = default_branch_name == Some(name);
 
-                if let Ok(commit) = branch.get().peel_to_commit() {
-                    // Get latest 3 commits
-                    if let Ok(mut revwalk) = repo.revwalk() {
-                        if revwalk.push(commit.id()).is_ok() {
-                            for (i, id_result) in revwalk.enumerate() {
-                                if i >= 3 { break; }
-                                if let Ok(id) = id_result {
-                                    if let Ok(c) = repo.find_commit(id) {
-                                        let short_id = c.id().to_string().chars().take(7).collect::<String>();
-                                        let summary = c.summary().unwrap_or("").to_string();
-                                        latest_commits.push(format!("{} {}", short_id, summary));
-                                    }
-                                }
+            if let Ok(commit) = branch.get().peel_to_commit() {
+                // Get latest 3 commits
+                if let Ok(mut revwalk) = repo.revwalk() {
+                    if revwalk.push(commit.id()).is_ok() {
+                        for (i, id_result) in revwalk.enumerate() {
+                            if i >= 3 {
+                                break;
                             }
-                        }
-                    }
-
-                    // Get diff if not default branch
-                    if !is_default {
-                        if let Some(default_c) = &default_commit {
-                            if let Ok(base_oid) = repo.merge_base(commit.id(), default_c.id()) {
-                                if let Ok(base_commit) = repo.find_commit(base_oid) {
-                                    if let Ok(base_tree) = base_commit.tree() {
-                                        if let Ok(branch_tree) = commit.tree() {
-                                            let mut diff_opts = git2::DiffOptions::new();
-                                            // Mitigate Asymmetric DoS: limits
-                                            // Setting a max depth isn't directly exposed in DiffOptions for tree walking,
-                                            // but git2 limits recursion by default, and we can enforce max deltas.
-
-                                            if let Ok(diff) = repo.diff_tree_to_tree(Some(&base_tree), Some(&branch_tree), Some(&mut diff_opts)) {
-                                                let workdir = repo.workdir();
-                                                let root_path = workdir.and_then(|w| w.canonicalize().ok());
-
-                                                let mut delta_count = 0;
-                                                for delta in diff.deltas() {
-                                                    delta_count += 1;
-                                                    if delta_count > 10_000 {
-                                                        break; // Enforce max_deltas limit
-                                                    }
-
-                                                    if let Some(path) = delta.new_file().path() {
-
-                                                        // Mitigate Arbitrary File Read (Symlink Traversal)
-                                                        let mut is_safe = true;
-
-                                                        if let (Some(workdir), Some(root)) = (workdir, &root_path) {
-                                                            let full_path = workdir.join(path);
-                                                            if let Ok(meta) = std::fs::symlink_metadata(&full_path) {
-                                                                if meta.file_type().is_symlink() {
-                                                                    if let Ok(canonical) = std::fs::canonicalize(&full_path) {
-                                                                        if !canonical.starts_with(root) {
-                                                                            is_safe = false;
-                                                                        }
-                                                                    } else {
-                                                                        // If we can't canonicalize it (e.g. broken symlink to outside),
-                                                                        // to be safe, we might just mark it unsafe.
-                                                                        // But standard behavior might be to allow broken symlinks
-                                                                        // unless we are strictly verifying they point inside.
-                                                                        // Let's be strict: if it's a symlink and we can't resolve it, skip it.
-                                                                        is_safe = false;
-                                                                    }
-                                                                } else {
-                                                                    // Check regular files too just in case of Zip Slip style attacks
-                                                                    if let Ok(canonical) = std::fs::canonicalize(&full_path) {
-                                                                        if !canonical.starts_with(root) {
-                                                                            is_safe = false;
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-
-                                                        if is_safe {
-                                                            files_changed.push(path.to_string_lossy().into_owned());
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                    }
+                            if let Ok(id) = id_result {
+                                if let Ok(c) = repo.find_commit(id) {
+                                    let short_id =
+                                        c.id().to_string().chars().take(7).collect::<String>();
+                                    let summary = c.summary().unwrap_or("").to_string();
+                                    latest_commits.push(format!("{} {}", short_id, summary));
                                 }
                             }
                         }
                     }
                 }
 
-                let metadata = BranchMetadata {
-                    branch_name: name.to_string(),
-                    latest_commits,
-                    files_changed,
-                };
-                branches_metadata.push(metadata);
+                // Get diff if not default branch
+                if !is_default {
+                    if let Some(default_c) = &default_commit {
+                        if let Ok(base_oid) = repo.merge_base(commit.id(), default_c.id()) {
+                            if let Ok(base_commit) = repo.find_commit(base_oid) {
+                                if let Ok(base_tree) = base_commit.tree() {
+                                    if let Ok(branch_tree) = commit.tree() {
+                                        let mut diff_opts = git2::DiffOptions::new();
+                                        // Mitigate Asymmetric DoS: limits
+                                        // Setting a max depth isn't directly exposed in DiffOptions for tree walking,
+                                        // but git2 limits recursion by default, and we can enforce max deltas.
+
+                                        if let Ok(diff) = repo.diff_tree_to_tree(
+                                            Some(&base_tree),
+                                            Some(&branch_tree),
+                                            Some(&mut diff_opts),
+                                        ) {
+                                            let workdir = repo.workdir();
+
+                                            let mut delta_count = 0;
+                                            for delta in diff.deltas() {
+                                                delta_count += 1;
+                                                if delta_count > 10_000 {
+                                                    break; // Enforce max_deltas limit
+                                                }
+
+                                                if let Some(path) = delta.new_file().path() {
+                                                    let mut is_safe = false;
+
+                                                    // Mitigate Arbitrary File Read (Symlink Traversal) using cap-std
+                                                    if let Some(workdir) = workdir {
+                                                        if let Ok(dir) = Dir::open_ambient_dir(
+                                                            workdir,
+                                                            cap_std::ambient_authority(),
+                                                        ) {
+                                                            // Try to access the path relative to the cap_std::fs::Dir
+                                                            // cap_std will prevent traversal outside the `workdir`
+                                                            if dir.metadata(path).is_ok()
+                                                                || dir
+                                                                    .symlink_metadata(path)
+                                                                    .is_ok()
+                                                            {
+                                                                is_safe = true;
+                                                            }
+                                                        }
+                                                    }
+
+                                                    if is_safe {
+                                                        files_changed.push(
+                                                            path.to_string_lossy().into_owned(),
+                                                        );
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
+
+            let metadata = BranchMetadata {
+                branch_name: name.to_string(),
+                latest_commits,
+                files_changed,
+            };
+            branches_metadata.push(metadata);
         }
     }
 
@@ -164,7 +164,7 @@ fn list_local_branches() -> PyResult<Vec<BranchMetadata>> {
 
 /// The git_semindex Python module implemented in Rust.
 #[pymodule]
-fn _git_semindex(_py: Python, m: &PyModule) -> PyResult<()> {
+fn _git_semindex(_py: Python, m: &pyo3::Bound<'_, pyo3::types::PyModule>) -> PyResult<()> {
     m.add_class::<BranchMetadata>()?;
     m.add_function(wrap_pyfunction!(list_local_branches, m)?)?;
     Ok(())

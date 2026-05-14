@@ -1,3 +1,4 @@
+from .indexer import SemanticIndexer
 import subprocess
 import logging
 
@@ -5,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 # Try to load the native Rust extension (Tier 1)
 try:
-    from ._git_semindex import list_local_branches as _rust_list_local_branches
+    from ._git_semindex import list_local_branches as _rust_list_local_branches  # type: ignore
 
     def list_local_branches():
         """
@@ -96,5 +97,4 @@ def _shell_list_local_branches():
         logger.error("Git executable not found in PATH.")
         return []
 
-from .indexer import SemanticIndexer
 __all__ = ["list_local_branches", "SemanticIndexer"]
