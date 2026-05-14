@@ -96,7 +96,7 @@ def _shell_list_local_branches():
                         try:
                             resolved_target = (repo_root / f).resolve()
                             # Ensure the resolved target is within the repository root
-                            if resolved_target == repo_root or repo_root in resolved_target.parents:
+                            if repo_root in resolved_target.parents:
                                 files_changed.append(f)
                         except Exception as e:
                             logger.debug(f"Failed to resolve path {f}: {e}")

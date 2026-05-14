@@ -2,6 +2,11 @@ import pytest
 import subprocess
 from git_semindex import list_local_branches, _shell_list_local_branches
 
+import os
+import pathlib
+import tempfile
+from unittest.mock import patch, MagicMock
+
 def test_shell_fallback():
     """Test that the shell fallback returns a list of dictionaries with correct keys."""
     # Ensure git is initialized for the test to work
@@ -32,12 +37,6 @@ def test_list_local_branches():
 
     branches = list_local_branches()
     assert isinstance(branches, list)
-
-
-import os
-import pathlib
-import tempfile
-from unittest.mock import patch, MagicMock
 
 def test_shell_fallback_security_boundary():
     """Test that the shell fallback filters out paths traversing outside the repository."""
@@ -99,8 +98,6 @@ def test_shell_fallback_security_boundary():
             # Monkey patch pathlib.Path to use our temp dir as base for the test
             # Because _shell_list_local_branches uses pathlib.Path(".").resolve() as fallback
             # and (repo_root / f).resolve() for resolution
-            original_resolve = pathlib.Path.resolve
-
             # We don't really need to monkey patch if we mock rev-parse and cd into the dir
             import os as os_module
             old_cwd = os_module.getcwd()
