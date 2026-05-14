@@ -73,14 +73,62 @@ fn extract_metadata(repo: &Repository) -> Result<Vec<BranchMetadata>, git2::Erro
                                 if let Ok(base_commit) = repo.find_commit(base_oid) {
                                     if let Ok(base_tree) = base_commit.tree() {
                                         if let Ok(branch_tree) = commit.tree() {
-                                            if let Ok(diff) = repo.diff_tree_to_tree(Some(&base_tree), Some(&branch_tree), None) {
+                                            let mut diff_opts = git2::DiffOptions::new();
+                                            // Mitigate Asymmetric DoS: limits
+                                            // Setting a max depth isn't directly exposed in DiffOptions for tree walking,
+                                            // but git2 limits recursion by default, and we can enforce max deltas.
+
+                                            if let Ok(diff) = repo.diff_tree_to_tree(Some(&base_tree), Some(&branch_tree), Some(&mut diff_opts)) {
+                                                let workdir = repo.workdir();
+                                                let root_path = workdir.and_then(|w| w.canonicalize().ok());
+
+                                                let mut delta_count = 0;
                                                 for delta in diff.deltas() {
+                                                    delta_count += 1;
+                                                    if delta_count > 10_000 {
+                                                        break; // Enforce max_deltas limit
+                                                    }
+
                                                     if let Some(path) = delta.new_file().path() {
-                                                        files_changed.push(path.to_string_lossy().into_owned());
+
+                                                        // Mitigate Arbitrary File Read (Symlink Traversal)
+                                                        let mut is_safe = true;
+
+                                                        if let (Some(workdir), Some(root)) = (workdir, &root_path) {
+                                                            let full_path = workdir.join(path);
+                                                            if let Ok(meta) = std::fs::symlink_metadata(&full_path) {
+                                                                if meta.file_type().is_symlink() {
+                                                                    if let Ok(canonical) = std::fs::canonicalize(&full_path) {
+                                                                        if !canonical.starts_with(root) {
+                                                                            is_safe = false;
+                                                                        }
+                                                                    } else {
+                                                                        // If we can't canonicalize it (e.g. broken symlink to outside),
+                                                                        // to be safe, we might just mark it unsafe.
+                                                                        // But standard behavior might be to allow broken symlinks
+                                                                        // unless we are strictly verifying they point inside.
+                                                                        // Let's be strict: if it's a symlink and we can't resolve it, skip it.
+                                                                        is_safe = false;
+                                                                    }
+                                                                } else {
+                                                                    // Check regular files too just in case of Zip Slip style attacks
+                                                                    if let Ok(canonical) = std::fs::canonicalize(&full_path) {
+                                                                        if !canonical.starts_with(root) {
+                                                                            is_safe = false;
+                                                                        }
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+
+                                                        if is_safe {
+                                                            files_changed.push(path.to_string_lossy().into_owned());
+                                                        }
                                                     }
                                                 }
                                             }
                                         }
+
                                     }
                                 }
                             }

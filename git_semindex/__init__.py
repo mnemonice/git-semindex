@@ -61,7 +61,7 @@ def _shell_list_local_branches():
             # Get latest 3 commits
             try:
                 commits_result = subprocess.run(
-                    ['git', 'log', '-n', '3', '--format=%h %s', branch],
+                    ['git', 'log', '-n', '3', '--format=%h %s', '--', branch],
                     capture_output=True, text=True, check=True
                 )
                 latest_commits = [c.strip() for c in commits_result.stdout.split('\n') if c.strip()]
@@ -73,7 +73,7 @@ def _shell_list_local_branches():
             if default_branch and branch != default_branch:
                 try:
                     diff_result = subprocess.run(
-                        ['git', 'diff', '--name-only', f'{default_branch}...{branch}'],
+                        ['git', 'diff', '--name-only', '--', f'{default_branch}...{branch}'],
                         capture_output=True, text=True, check=True
                     )
                     files_changed = [f.strip() for f in diff_result.stdout.split('\n') if f.strip()]
