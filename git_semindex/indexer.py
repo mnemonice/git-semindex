@@ -3,7 +3,7 @@ import json
 def _escape_xml(text):
     if not isinstance(text, str):
         return text
-    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    return text.replace("<", "&lt;").replace(">", "&gt;")
 
 def _escape_branch_data(branch):
     return {
