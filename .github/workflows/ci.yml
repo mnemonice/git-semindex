@@ -63,4 +63,5 @@ jobs:
       - name: Build integration
         run: pip install -e .
       - name: Run Python Tests
-        run: pytest tests/
+        run: |
+          python -c "import sys; sys.path.insert(0, '.'); import pytest; sys.exit(pytest.main(['tests/']))"
