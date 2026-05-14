@@ -19,7 +19,6 @@ jobs:
             target: x86_64-unknown-linux-gnu
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
-            use-cross: true
           - os: macos-latest
             target: x86_64-apple-darwin
           - os: macos-latest
@@ -39,10 +38,9 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           target: ${{ matrix.target }}
-          args: --release --out dist
+          args: --release --out dist -i python3.10
           sccache: 'true'
           manylinux: auto
-          use-cross: ${{ matrix.use-cross == true }}
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
