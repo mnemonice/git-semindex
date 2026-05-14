@@ -19,7 +19,7 @@ pub struct BranchMetadata {
 #[pymethods]
 impl BranchMetadata {
     /// Converts the struct to a Python dictionary.
-    pub fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<&'py PyDict> {
+    pub fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<pyo3::Bound<'py, PyDict>> {
         let dict = PyDict::new(py);
         dict.set_item("branch_name", &self.branch_name)?;
         dict.set_item("latest_commits", &self.latest_commits)?;
@@ -164,7 +164,7 @@ fn list_local_branches() -> PyResult<Vec<BranchMetadata>> {
 
 /// The git_semindex Python module implemented in Rust.
 #[pymodule]
-fn _git_semindex(_py: Python, m: &PyModule) -> PyResult<()> {
+fn _git_semindex(_py: Python, m: &pyo3::Bound<'_, pyo3::types::PyModule>) -> PyResult<()> {
     m.add_class::<BranchMetadata>()?;
     m.add_function(wrap_pyfunction!(list_local_branches, m)?)?;
     Ok(())

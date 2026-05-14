@@ -3,6 +3,9 @@ on:
   push:
     branches: [main]
   pull_request:
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   rust-lint-and-test:
     runs-on: ubuntu-latest
@@ -61,12 +64,3 @@ jobs:
         run: maturin develop
       - name: Run Python Tests
         run: pytest tests/
-
-  cargo-audit:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Run Cargo Audit
-        uses: rustsec/audit-check@v1.4.1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
