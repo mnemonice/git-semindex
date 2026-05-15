@@ -1,9 +1,10 @@
 import json
+import html
 
 def _escape_xml(text):
     if not isinstance(text, str):
         return text
-    return text.replace("<", "&lt;").replace(">", "&gt;")
+    return html.escape(text, quote=True)
 
 def _escape_branch_data(branch):
     return {
