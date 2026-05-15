@@ -5,7 +5,7 @@ use pyo3::types::PyDict;
 
 /// Represents metadata extracted from a git branch.
 /// Adheres to the "Semantic Extraction over Textual Merging" paradigm.
-#[pyclass]
+#[pyclass(skip_from_py_object)]
 #[derive(Clone, Debug)]
 pub struct BranchMetadata {
     #[pyo3(get)]

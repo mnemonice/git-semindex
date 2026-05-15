@@ -71,10 +71,13 @@ def _shell_list_local_branches():
             repo_root = pathlib.Path(".").resolve()
 
         for branch in branch_names:
+            # Prevent Option Injection by using the fully qualified ref
+            safe_ref = f"refs/heads/{branch}"
+
             # Get latest 3 commits
             try:
                 commits_result = subprocess.run(
-                    ['git', 'log', '-n', '3', '--format=%h %s', '--', branch],
+                    ['git', 'log', '-n', '3', '--format=%h %s', safe_ref, '--'],
                     capture_output=True, text=True, check=True
                 )
                 latest_commits = [c.strip() for c in commits_result.stdout.split('\n') if c.strip()]
@@ -86,10 +89,13 @@ def _shell_list_local_branches():
             if default_branch and branch != default_branch:
                 try:
                     diff_result = subprocess.run(
-                        ['git', 'diff', '--name-only', '--', f'{default_branch}...{branch}'],
+                        ['git', 'diff', '--name-only', f'{default_branch}...{safe_ref}', '--'],
                         capture_output=True, text=True, check=True
                     )
                     raw_files = [f.strip() for f in diff_result.stdout.split('\n') if f.strip()]
+
+                    # Memory protection: limit to 10k files like Rust core
+                    raw_files = raw_files[:10000]
 
                     files_changed = []
                     for f in raw_files:
