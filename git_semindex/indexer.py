@@ -4,7 +4,7 @@ import html
 def _escape_xml(text):
     if not isinstance(text, str):
         return text
-    return html.escape(text, quote=True)
+    return html.escape(text, quote=False)
 
 def _escape_branch_data(branch):
     return {
