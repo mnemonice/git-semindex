@@ -1,6 +1,7 @@
 from .indexer import SemanticIndexer
 import subprocess
 import logging
+import pathlib
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,17 @@ def _shell_list_local_branches():
             default_branch = 'master'
 
         metadata_list = []
+
+        # Security Boundary Baseline: Mitigate Arbitrary File Read (Symlink Traversal)
+        try:
+            repo_root_result = subprocess.run(
+                ['git', 'rev-parse', '--show-toplevel'],
+                capture_output=True, text=True, check=True
+            )
+            repo_root = pathlib.Path(repo_root_result.stdout.strip()).resolve()
+        except subprocess.CalledProcessError:
+            repo_root = pathlib.Path(".").resolve()
+
         for branch in branch_names:
             # Get latest 3 commits
             try:
@@ -77,7 +89,18 @@ def _shell_list_local_branches():
                         ['git', 'diff', '--name-only', '--', f'{default_branch}...{branch}'],
                         capture_output=True, text=True, check=True
                     )
-                    files_changed = [f.strip() for f in diff_result.stdout.split('\n') if f.strip()]
+                    raw_files = [f.strip() for f in diff_result.stdout.split('\n') if f.strip()]
+
+                    files_changed = []
+                    for f in raw_files:
+                        try:
+                            resolved_target = (repo_root / f).resolve()
+                            # Ensure the resolved target is within the repository root
+                            if repo_root in resolved_target.parents:
+                                files_changed.append(f)
+                        except Exception as e:
+                            logger.debug(f"Failed to resolve path {f}: {e}")
+                            pass
                 except subprocess.CalledProcessError:
                     # Ignore errors, e.g. when there's no common ancestry or branch doesn't exist anymore
                     pass
