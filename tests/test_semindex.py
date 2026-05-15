@@ -99,12 +99,13 @@ def test_shell_fallback_security_boundary():
             # Because _shell_list_local_branches uses pathlib.Path(".").resolve() as fallback
             # and (repo_root / f).resolve() for resolution
             # We don't really need to monkey patch if we mock rev-parse and cd into the dir
-            old_cwd = os.getcwd()
+            import os as os_module
+            old_cwd = os_module.getcwd()
             try:
-                os.chdir(str(repo_path))
+                os_module.chdir(str(repo_path))
                 branches = _shell_list_local_branches()
             finally:
-                os.chdir(old_cwd)
+                os_module.chdir(old_cwd)
 
             feature_branch = next((b for b in branches if b['branch_name'] == 'feature'), None)
             assert feature_branch is not None
