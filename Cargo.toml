@@ -8,12 +8,12 @@ name = "git_semindex"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.24.1", features = ["extension-module"] }
+pyo3 = { version = "0.28.3", features = ["extension-module"] }
 git2 = { version = "0.20", default-features = false }
-cap-std = "3.4.1"
+cap-std = "4.0.2"
 
 [dev-dependencies]
-criterion = "0.5.1"
+criterion = "0.8.2"
 
 [profile.release]
 lto = true
