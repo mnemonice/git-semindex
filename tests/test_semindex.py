@@ -129,3 +129,4 @@ def test_shell_fallback_git_command_failure():
 
         branches = _shell_list_local_branches()
         assert branches == []
+        mock_run.assert_called_once()
