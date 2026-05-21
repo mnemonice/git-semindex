@@ -121,6 +121,15 @@ def test_shell_fallback_security_boundary():
             if malicious_symlink.exists():
                 assert 'malicious.txt' not in feature_branch['files_changed']
 
+def test_shell_fallback_git_command_failure():
+    """Test that complete failure of the git command returns an empty list."""
+    with patch('subprocess.run') as mock_run:
+        # Raise CalledProcessError on the very first command (e.g. git branch)
+        mock_run.side_effect = subprocess.CalledProcessError(1, ['git', 'branch'])
+
+        branches = _shell_list_local_branches()
+        assert branches == []
+        mock_run.assert_called_once()
 def test_shell_fallback_git_not_found(caplog):
     """Test that the shell fallback handles missing git executable gracefully."""
     with patch('subprocess.run') as mock_run:
