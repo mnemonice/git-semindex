@@ -62,3 +62,4 @@ $RECYCLE.BIN/
 .vscode/
 *.swp
 *.swo
+node_modules/
