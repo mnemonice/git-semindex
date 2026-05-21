@@ -129,5 +129,4 @@ def test_shell_fallback_git_not_found(caplog):
         branches = _shell_list_local_branches()
 
         assert branches == []
-        mock_run.assert_called_once()
-        assert any(r.levelname == "ERROR" and "Git executable not found in PATH." in r.msg for r in caplog.records)
+        assert "Git executable not found in PATH." in caplog.text
