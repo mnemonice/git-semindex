@@ -131,3 +131,22 @@ def test_shell_fallback_git_not_found(caplog):
 
             assert branches == []
             assert "Git executable not found in PATH." in caplog.text
+def test_shell_fallback_git_command_failure():
+    """Test that complete failure of the git command returns an empty list."""
+    with patch('subprocess.run') as mock_run:
+        # Raise CalledProcessError on the very first command (e.g. git branch)
+        mock_run.side_effect = subprocess.CalledProcessError(1, ['git', 'branch'])
+
+        branches = _shell_list_local_branches()
+        assert branches == []
+        mock_run.assert_called_once()
+def test_shell_fallback_git_not_found(caplog):
+    """Test that the shell fallback handles missing git executable gracefully."""
+    with patch('subprocess.run') as mock_run:
+        mock_run.side_effect = FileNotFoundError()
+
+        branches = _shell_list_local_branches()
+
+        assert branches == []
+        mock_run.assert_called_once()
+        assert any(r.levelname == "ERROR" and "Git executable not found in PATH." in r.msg for r in caplog.records)
