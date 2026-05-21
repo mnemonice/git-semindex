@@ -9,7 +9,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.28.3", features = ["extension-module"] }
-git2 = { version = "0.21", default-features = false }
+git2 = { version = "0.20", default-features = false }
 cap-std = "4.0.2"
 
 [dev-dependencies]
