@@ -120,3 +120,14 @@ def test_shell_fallback_security_boundary():
             # The malicious symlink should be filtered out if it was created
             if malicious_symlink.exists():
                 assert 'malicious.txt' not in feature_branch['files_changed']
+
+def test_shell_fallback_git_not_found(caplog):
+    """Test that the shell fallback handles missing git executable gracefully."""
+    with patch('subprocess.run') as mock_run:
+        mock_run.side_effect = FileNotFoundError()
+
+        branches = _shell_list_local_branches()
+
+        assert branches == []
+        mock_run.assert_called_once()
+        assert any(r.levelname == "ERROR" and "Git executable not found in PATH." in r.msg for r in caplog.records)
