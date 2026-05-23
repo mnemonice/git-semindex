@@ -66,7 +66,8 @@ fn extract_metadata(repo: &Repository) -> Result<Vec<BranchMetadata>, git2::Erro
                                 if let Ok(c) = repo.find_commit(id) {
                                     let short_id =
                                         c.id().to_string().chars().take(7).collect::<String>();
-                                    let summary = c.summary().unwrap_or("").to_string();
+                                    let summary =
+                                        c.summary().unwrap_or(Some("")).unwrap().to_string();
                                     latest_commits.push(format!("{} {}", short_id, summary));
                                 }
                             }
