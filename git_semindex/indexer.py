@@ -10,7 +10,8 @@ def _escape_branch_data(branch):
     return {
         'branch_name': _escape_xml(branch.get('branch_name', '')),
         'latest_commits': [_escape_xml(c) for c in branch.get('latest_commits', [])],
-        'files_changed': [_escape_xml(f) for f in branch.get('files_changed', [])]
+        'files_changed': [_escape_xml(f) for f in branch.get('files_changed', [])],
+        'semantic_changes': [_escape_xml(s) for s in branch.get('semantic_changes', [])]
     }
 
 class SemanticIndexer:
