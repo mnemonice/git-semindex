@@ -1,3 +1,4 @@
+import ast
 from .indexer import SemanticIndexer
 import subprocess
 import logging
@@ -19,7 +20,8 @@ try:
                 {
                     "branch_name": b.branch_name,
                     "latest_commits": b.latest_commits,
-                    "files_changed": b.files_changed
+                    "files_changed": b.files_changed,
+                    "semantic_changes": b.semantic_changes
                 }
                 for b in _rust_list_local_branches()
             ]
@@ -37,6 +39,22 @@ except ImportError:
         Uses the universal shell fallback.
         """
         return _shell_list_local_branches()
+
+def _extract_python_semantics_ast(file_path):
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            source = f.read()
+        tree = ast.parse(source)
+        semantics = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef):
+                semantics.append(f'Function `{node.name}` in {file_path}')
+            elif isinstance(node, ast.ClassDef):
+                semantics.append(f'Class `{node.name}` in {file_path}')
+        return semantics
+    except Exception as e:
+        logger.debug(f'Failed to parse AST for {file_path}: {e}')
+        return []
 
 def _shell_list_local_branches():
     """
@@ -86,6 +104,7 @@ def _shell_list_local_branches():
 
             # Get files changed
             files_changed = []
+            semantic_changes = []
             if default_branch and branch != default_branch:
                 try:
                     diff_result = subprocess.run(
@@ -104,6 +123,8 @@ def _shell_list_local_branches():
                             # Ensure the resolved target is within the repository root
                             if repo_root in resolved_target.parents:
                                 files_changed.append(f)
+                                if f.endswith('.py'):
+                                    semantic_changes.extend(_extract_python_semantics_ast(str(resolved_target)))
                         except Exception as e:
                             logger.debug(f"Failed to resolve path {f}: {e}")
                             pass
@@ -111,10 +132,12 @@ def _shell_list_local_branches():
                     # Ignore errors, e.g. when there's no common ancestry or branch doesn't exist anymore
                     pass
 
+            semantic_changes.sort()
             metadata = {
                 'branch_name': branch,
                 'latest_commits': latest_commits,
-                'files_changed': files_changed
+                'files_changed': files_changed,
+                'semantic_changes': semantic_changes
             }
             metadata_list.append(metadata)
 
